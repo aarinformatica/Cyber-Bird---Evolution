@@ -16,8 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const laserChargeBar = document.getElementById('laser-charge-bar');
     const laserReadyText = document.getElementById('laser-ready-text');
 
-    canvas.width = 400;
-    canvas.height = 600;
+    // Sistema de Redimensionamento Responsivo Interno do Canvas
+    function resizeCanvas() {
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+        background.init(); // Reajusta os prédios ao novo tamanho
+    });
 
     let gameEngine;
     let score = 0;
@@ -191,25 +200,37 @@ document.addEventListener('DOMContentLoaded', () => {
     background.init();
 
     // ==========================================
-    // CAPTURA DE INPUTS
+    // CAPTURA DE INPUTS (DESKTOP + MOBILE)
     // ==========================================
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Space') eventJump();
         if (e.code === 'KeyX') eventFireLaser();
     });
     
+    // Controles para Mouse (Computador)
     canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 0) eventJump();
-        if (e.button === 2) {
+        if (e.button === 0) eventJump(); // Clique esquerdo pula
+        if (e.button === 2) {            // Clique direito atira
             e.preventDefault();
             eventFireLaser();
         }
     });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+    // CONTROLES MOBILE (Toques Dinâmicos na Tela)
     canvas.addEventListener('touchstart', (e) => { 
-        e.preventDefault(); 
-        eventJump(); 
+        e.preventDefault(); // Evita zoom chato e atrasos de clique no mobile
+        
+        // Pega as coordenadas do primeiro toque ativo na tela
+        const touchX = e.touches[0].clientX;
+        const screenMiddle = window.innerWidth / 2;
+
+        // Se tocar no lado esquerdo da tela -> Pula. Se tocar no lado direito -> Atira.
+        if (touchX < screenMiddle) {
+            eventJump();
+        } else {
+            eventFireLaser();
+        }
     }, { passive: false });
 
     if (startBtn) {
@@ -360,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (laserChargeBar) laserChargeBar.style.width = '0%';
         if (laserReadyText) laserReadyText.classList.remove('ready-pulse');
         
-        bird.y = 300;
+        bird.y = canvas.height / 2;
         bird.velocity = 0;
         bird.trail = [];
         pipes = [];
@@ -545,9 +566,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (items[i].x + 20 < 0) items.splice(i, 1);
         }
 
+        // Fluxo das Barreiras Neon (Com Atualização de Movimento Vertical)
         for (let i = pipes.length - 1; i >= 0; i--) {
             pipes[i].x -= pipeConfig.currentSpeed;
 
+            // Movimentação Vertical Dinâmica baseada no Nível
             if (pipeConfig.verticalSpeed > 0) {
                 pipes[i].top += pipeConfig.verticalSpeed * pipes[i].direction;
                 pipes[i].bottom -= pipeConfig.verticalSpeed * pipes[i].direction;
@@ -571,6 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.strokeRect(pipes[i].x, (canvas.height - 30) - pipes[i].bottom, pipeConfig.width, pipes[i].bottom + 5);
             ctx.restore();
 
+            // Colisão AABB
             if (
                 bird.x + bird.radius > pipes[i].x &&
                 bird.x - bird.radius < pipes[i].x + pipeConfig.width
@@ -601,6 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Sistema de Pontuação e Transição de Nível (100 pontos)
             if (!pipes[i].passed && pipes[i].x + pipeConfig.width < bird.x) {
                 pipes[i].passed = true;
                 score++;
@@ -621,6 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Atualização das Partículas Ativas
         for (let i = particles.length - 1; i >= 0; i--) {
             particles[i].update();
             particles[i].draw();
@@ -632,10 +658,12 @@ document.addEventListener('DOMContentLoaded', () => {
         gameEngine = requestAnimationFrame(update);
     }
 
+    // Mantém o cenário renderizado em segundo plano mesmo no menu inicial
     function initialDraw() {
         background.updateAndDraw();
         if(!gameActive) requestAnimationFrame(initialDraw);
     }
     initialDraw();
 });
+
 
